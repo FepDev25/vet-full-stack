@@ -1,0 +1,21 @@
+services:
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: veterinaria-postgres
+    environment:
+      POSTGRES_DB:       veterinaria
+      POSTGRES_USER:     vetuser
+      POSTGRES_PASSWORD: vetpass
+    ports:
+      - "5435:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vetuser -d veterinaria"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres_data:
