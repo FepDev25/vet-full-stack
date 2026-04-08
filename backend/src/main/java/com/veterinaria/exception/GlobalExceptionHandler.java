@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import com.fasterxml.jackson.core.JacksonException;
-import com.veterinaria.application.dto.ErrorResponse;
+import com.veterinaria.application.dto.response.ErrorResponse;
 
 import jakarta.servlet.http.HttpServletRequest;
 
