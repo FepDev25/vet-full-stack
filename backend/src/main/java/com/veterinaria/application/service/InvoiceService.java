@@ -268,6 +268,10 @@ public class InvoiceService {
             throw new ConflictException("INVALID_STATUS_TRANSITION",
                     "Solo se puede cancelar una factura en estado ISSUED (BR-21)");
         }
+
+        // BR-23: restaurar stock de productos físicos
+        restoreStock(itemRepo.findByInvoiceId(id));
+
         invoice.setStatus(InvoiceStatus.CANCELLED);
         return toResponse(invoiceRepo.save(invoice));
     }
@@ -280,6 +284,10 @@ public class InvoiceService {
             throw new ConflictException("INVALID_STATUS_TRANSITION",
                     "Solo se puede reembolsar una factura en estado PAID (BR-21)");
         }
+
+        // BR-23: restaurar stock de productos físicos
+        restoreStock(itemRepo.findByInvoiceId(id));
+
         invoice.setStatus(InvoiceStatus.REFUNDED);
         return toResponse(invoiceRepo.save(invoice));
     }
@@ -296,6 +304,18 @@ public class InvoiceService {
         if (invoice.getStatus() != InvoiceStatus.DRAFT) {
             throw new ConflictException("INVOICE_NOT_DRAFT",
                     "Solo se puede " + action + " una factura en estado DRAFT (BR-25)");
+        }
+    }
+
+    private void restoreStock(List<InvoiceItem> items) {
+        for (InvoiceItem item : items) {
+            if (item.getProduct() != null
+                    && item.getProduct().getType() != ProductType.SERVICE
+                    && item.getProduct().getStockQuantity() != null) {
+                Product p = item.getProduct();
+                p.setStockQuantity(p.getStockQuantity() + item.getQuantity());
+                productRepo.save(p);
+            }
         }
     }
 
