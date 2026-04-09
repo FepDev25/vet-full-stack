@@ -82,6 +82,14 @@ public class ConsultationController {
                 consultationService.updateDiagnosis(consultationId, diagnosisId, req));
     }
 
+    @DeleteMapping("/{consultationId}/diagnoses/{diagnosisId}")
+    public ResponseEntity<Void> deleteDiagnosis(
+            @PathVariable UUID consultationId,
+            @PathVariable UUID diagnosisId) {
+        consultationService.deleteDiagnosis(consultationId, diagnosisId);
+        return ResponseEntity.noContent().build();
+    }
+
     // PRESCRIPTIONS
 
     @GetMapping("/{consultationId}/prescriptions")
