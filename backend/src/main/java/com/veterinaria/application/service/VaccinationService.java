@@ -47,6 +47,15 @@ public class VaccinationService {
         return toResponse(findOrThrow(id));
     }
 
+    // listar vacunaciones de un paciente
+    public List<VaccinationResponse> listByPatient(UUID patientId) {
+        patientRepo.findByIdAndDeletedAtIsNull(patientId)
+                .orElseThrow(() -> new ResourceNotFoundException("PATIENT_NOT_FOUND",
+                        "Paciente no encontrado: " + patientId));
+        return vaccinationRepo.findByPatientId(patientId).stream()
+                .map(this::toResponse).toList();
+    }
+
     // listar próximas vacunaciones por vencer en los próximos N días
     public List<VaccinationDueResponse> listDueVaccinations(int daysAhead) {
         LocalDate cutoff = LocalDate.now().plusDays(daysAhead);
