@@ -17,6 +17,7 @@ import com.veterinaria.application.dto.response.AuthResponse;
 import com.veterinaria.application.dto.response.TokenRefreshResponse;
 import com.veterinaria.application.dto.response.UserProfileResponse;
 import com.veterinaria.application.service.AuthService;
+import com.veterinaria.exception.BusinessRuleException;
 
 import jakarta.validation.Valid;
 
@@ -48,7 +49,13 @@ public class AuthController {
 
     @GetMapping("/me")
     public ResponseEntity<UserProfileResponse> me(
-            @AuthenticationPrincipal UserDetails principal) {
-        return ResponseEntity.ok(authService.getCurrentUser(principal.getUsername()));
+            @AuthenticationPrincipal Object principal) {
+        if (principal == null) {
+            throw new BusinessRuleException("UNAUTHENTICATED", "No autenticado", 401);
+        }
+        String email = principal instanceof UserDetails userDetails
+                ? userDetails.getUsername()
+                : principal.toString();
+        return ResponseEntity.ok(authService.getCurrentUser(email));
     }
 }
