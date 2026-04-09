@@ -1,0 +1,117 @@
+spring:
+  application:
+    name: veterinaria-backend
+
+  #  Base de datos 
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:xxx}:${DB_PORT:xxx}/${DB_NAME:xxx}
+    username: ${DB_USERNAME:xxx}
+    password: ${DB_PASSWORD:xxx}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+
+  #  JPA / Hibernate
+  jpa:
+    hibernate:
+      # none: Flyway gestiona el schema (migraciones en db/migration/)
+      ddl-auto: none
+    show-sql: false
+    open-in-view: false   # Evita lazy-loading fuera de la transacción
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: false
+        jdbc:
+          # Todas las columnas TIMESTAMPTZ se leen/escriben en UTC
+          time_zone: UTC
+        order_inserts: true
+        order_updates: true
+        batch_versioned_data: true
+        jdbc.batch_size: 25
+
+  # Flyway — migraciones versionadas de la BD
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: false
+    validate-on-migrate: true
+
+
+#  Servidor 
+server:
+  port: 8080
+  servlet:
+    context-path: /
+
+#  Configuración de la aplicación 
+app:
+  jwt:
+    secret: ${JWT_SECRET:xxx}
+    # Access token: 24 horas
+    expiration-ms: ${JWT_EXPIRATION_MS:86400000}
+    # Refresh token: 7 días
+    refresh-expiration-ms: ${JWT_REFRESH_EXPIRATION_MS:604800000}
+
+  cors:
+    allowed-origins: ${CORS_ORIGINS:http://localhost:5173,http://localhost:3000}
+
+#  SpringDoc / Swagger UI 
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    # Mostrar en la UI los endpoints agrupados por tag
+    tags-sorter: alpha
+    operations-sorter: alpha
+  # Incluir endpoints de todos los paquetes bajo com.veterinaria
+  packages-to-scan: com.veterinaria
+
+#  Logging ─
+logging:
+  level:
+    root: INFO
+    com.veterinaria: DEBUG
+    org.hibernate.SQL: WARN
+    org.springframework.security: WARN
+
+---
+#  Perfil: dev ─
+spring:
+  config:
+    activate:
+      on-profile: dev
+  jpa:
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+  flyway:
+    locations: classpath:db/migration,classpath:db/seeds
+
+logging:
+  level:
+    com.veterinaria: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.orm.jdbc.bind: TRACE
+
+---
+#  Perfil: prod 
+spring:
+  config:
+    activate:
+      on-profile: prod
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: false
+
+logging:
+  level:
+    root: WARN
+    com.veterinaria: INFO
