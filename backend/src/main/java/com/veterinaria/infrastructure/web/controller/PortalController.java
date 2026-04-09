@@ -26,6 +26,7 @@ import com.veterinaria.domain.enums.AppointmentStatus;
 import com.veterinaria.domain.enums.InvoiceStatus;
 import com.veterinaria.domain.repository.ClientPatientRepository;
 import com.veterinaria.domain.repository.ClientRepository;
+import com.veterinaria.exception.BusinessRuleException;
 import com.veterinaria.exception.ResourceNotFoundException;
 
 // controller para endpoints del portal del cliente que permiten a los clientes 
@@ -51,8 +52,8 @@ public class PortalController {
 
     @GetMapping("/patients")
     public ResponseEntity<List<PatientResponse>> myPatients(
-            @AuthenticationPrincipal UserDetails principal) {
-        Client client = resolveClient(principal.getUsername());
+            @AuthenticationPrincipal Object principal) {
+        Client client = resolveClient(resolveEmail(principal));
         List<PatientResponse> patients = clientPatientRepo.findByClientId(client.getId())
                 .stream()
                 .map(ClientPatient::getPatient)
@@ -64,10 +65,10 @@ public class PortalController {
 
     @GetMapping("/appointments")
     public ResponseEntity<AppointmentPage> myAppointments(
-            @AuthenticationPrincipal UserDetails principal,
+            @AuthenticationPrincipal Object principal,
             @RequestParam(required = false) AppointmentStatus status,
             @PageableDefault(size = 20) Pageable pageable) {
-        Client client = resolveClient(principal.getUsername());
+        Client client = resolveClient(resolveEmail(principal));
         List<UUID> patientIds = clientPatientRepo.findByClientId(client.getId())
                 .stream()
                 .map(cp -> cp.getPatient().getId())
@@ -83,10 +84,10 @@ public class PortalController {
 
     @GetMapping("/invoices")
     public ResponseEntity<InvoicePage> myInvoices(
-            @AuthenticationPrincipal UserDetails principal,
+            @AuthenticationPrincipal Object principal,
             @RequestParam(required = false) InvoiceStatus status,
             @PageableDefault(size = 20) Pageable pageable) {
-        Client client = resolveClient(principal.getUsername());
+        Client client = resolveClient(resolveEmail(principal));
         return ResponseEntity.ok(invoiceService.listInvoices(client.getId(), status, pageable));
     }
 
@@ -96,6 +97,16 @@ public class PortalController {
         return clientRepo.findByEmailAndDeletedAtIsNull(email)
                 .orElseThrow(() -> new ResourceNotFoundException("CLIENT_NOT_FOUND",
                         "Cliente no encontrado para el email: " + email));
+    }
+
+    private String resolveEmail(Object principal) {
+        if (principal == null) {
+            throw new BusinessRuleException("UNAUTHENTICATED", "No autenticado", 401);
+        }
+        if (principal instanceof UserDetails userDetails) {
+            return userDetails.getUsername();
+        }
+        return principal.toString();
     }
 
     private PatientResponse toPatientResponse(Patient p) {
