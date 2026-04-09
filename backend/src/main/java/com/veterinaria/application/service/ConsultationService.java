@@ -3,9 +3,13 @@ package com.veterinaria.application.service;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.veterinaria.application.dto.page.ConsultationPage;
+import com.veterinaria.application.dto.page.PageMeta;
 import com.veterinaria.application.dto.request.ConsultationPatchRequest;
 import com.veterinaria.application.dto.request.ConsultationRequest;
 import com.veterinaria.application.dto.request.DiagnosisPatchRequest;
@@ -63,6 +67,14 @@ public class ConsultationService {
     }
 
     // CONSULTATION
+
+    // listar consultas de un paciente (paginado)
+    public ConsultationPage listByPatient(UUID patientId, Pageable pageable) {
+        Page<Consultation> page = consultationRepo.findByPatientId(patientId, pageable);
+        List<ConsultationResponse> content = page.getContent().stream()
+                .map(this::toResponse).toList();
+        return new ConsultationPage(content, toPageMeta(page));
+    }
 
     // obtener consulta con detalles
     public ConsultationResponse getConsultation(UUID id) {
@@ -185,6 +197,17 @@ public class ConsultationService {
         return toDiagnosisResponse(diagnosisRepo.save(d));
     }
 
+    // eliminar diagnóstico
+    @Transactional
+    public void deleteDiagnosis(UUID consultationId, UUID diagnosisId) {
+        findOrThrow(consultationId);
+        Diagnosis d = diagnosisRepo.findById(diagnosisId)
+                .filter(x -> x.getConsultation().getId().equals(consultationId))
+                .orElseThrow(() -> new ResourceNotFoundException("DIAGNOSIS_NOT_FOUND",
+                        "Diagnóstico no encontrado: " + diagnosisId));
+        diagnosisRepo.delete(d);
+    }
+
     // PRESCRIPTIONS
 
     // listar prescripciones de una consulta
@@ -281,5 +304,10 @@ public class ConsultationService {
                 p.getProduct().getId(), p.getProduct().getName(),
                 p.getDosage(), p.getFrequency(), p.getDurationDays(),
                 p.getInstructions(), p.getCreatedAt());
+    }
+
+    private PageMeta toPageMeta(Page<?> page) {
+        return new PageMeta(page.getTotalElements(), page.getTotalPages(),
+                page.getNumber(), page.getSize());
     }
 }
