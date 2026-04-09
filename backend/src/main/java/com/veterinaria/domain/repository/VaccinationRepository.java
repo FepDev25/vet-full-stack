@@ -22,4 +22,13 @@ public interface VaccinationRepository extends JpaRepository<Vaccination, UUID> 
             ORDER BY v.nextDueDate ASC
             """)
     List<Vaccination> findDueVaccinations(@Param("cutoff") LocalDate cutoff);
+
+    @Query("""
+            SELECT v FROM Vaccination v
+            JOIN FETCH v.product
+            JOIN FETCH v.staff
+            WHERE v.patient.id = :patientId
+            ORDER BY v.administeredAt DESC
+            """)
+    List<Vaccination> findByPatientId(@Param("patientId") UUID patientId);
 }
