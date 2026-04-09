@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.veterinaria.application.dto.page.AppointmentPage;
+import com.veterinaria.application.dto.page.ConsultationPage;
 import com.veterinaria.application.dto.page.PatientPage;
 import com.veterinaria.application.dto.request.AddOwnerRequest;
 import com.veterinaria.application.dto.request.PatientPatchRequest;
@@ -28,8 +29,11 @@ import com.veterinaria.application.dto.request.PatientRequest;
 import com.veterinaria.application.dto.request.PatientUpdateRequest;
 import com.veterinaria.application.dto.response.OwnerResponse;
 import com.veterinaria.application.dto.response.PatientResponse;
+import com.veterinaria.application.dto.response.VaccinationResponse;
 import com.veterinaria.application.service.AppointmentService;
+import com.veterinaria.application.service.ConsultationService;
 import com.veterinaria.application.service.PatientService;
+import com.veterinaria.application.service.VaccinationService;
 
 import jakarta.validation.Valid;
 
@@ -37,13 +41,19 @@ import jakarta.validation.Valid;
 @RequestMapping("/api/v1/patients")
 public class PatientController {
 
-    private final PatientService     patientService;
-    private final AppointmentService appointmentService;
+    private final PatientService        patientService;
+    private final AppointmentService    appointmentService;
+    private final ConsultationService   consultationService;
+    private final VaccinationService    vaccinationService;
 
     public PatientController(PatientService patientService,
-                             AppointmentService appointmentService) {
-        this.patientService     = patientService;
-        this.appointmentService = appointmentService;
+                             AppointmentService appointmentService,
+                             ConsultationService consultationService,
+                             VaccinationService vaccinationService) {
+        this.patientService      = patientService;
+        this.appointmentService  = appointmentService;
+        this.consultationService = consultationService;
+        this.vaccinationService  = vaccinationService;
     }
 
     @GetMapping
@@ -121,6 +131,24 @@ public class PatientController {
             @PageableDefault(size = 20) Pageable pageable) {
         return ResponseEntity.ok(
                 appointmentService.listPatientAppointments(patientId, pageable));
+    }
+
+    // CONSULTATIONS
+
+    @GetMapping("/{patientId}/consultations")
+    public ResponseEntity<ConsultationPage> listConsultations(
+            @PathVariable UUID patientId,
+            @PageableDefault(size = 20) Pageable pageable) {
+        return ResponseEntity.ok(
+                consultationService.listByPatient(patientId, pageable));
+    }
+
+    // VACCINATIONS
+
+    @GetMapping("/{patientId}/vaccinations")
+    public ResponseEntity<List<VaccinationResponse>> listVaccinations(
+            @PathVariable UUID patientId) {
+        return ResponseEntity.ok(vaccinationService.listByPatient(patientId));
     }
 
     // HELPERS
