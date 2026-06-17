@@ -18,6 +18,15 @@ spring:
     enabled: true
     locations: classpath:db/migration
 
+  # AI providers — se leen del environment para no commitear API keys.
+  ai:
+    anthropic:
+      api-key: ${ANTHROPIC_API_KEY:}
+    google:
+      genai:
+        embedding:
+          api-key: ${GEMINI_API_KEY:}
+
 app:
   jwt:
     # Valor de test, separado del dev. Viene de .env (JWT_SECRET_TEST).

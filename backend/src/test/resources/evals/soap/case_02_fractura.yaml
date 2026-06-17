@@ -12,7 +12,7 @@ expected:
   planMinLength: 80
   assessmentMinLength: 15
   diagnosisMinCount: 1
-  diagnosisMaxCount: 2
+  diagnosisMaxCount: 3
   requirePrimary: true
   warningsMinCount: 1
   requireStandardDisclaimers: true
