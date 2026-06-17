@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -24,4 +25,8 @@ public interface AiInteractionLogRepository extends JpaRepository<AiInteractionL
               AND a.status = com.veterinaria.ai.audit.AiStatus.SUCCESS
             """)
     BigDecimal sumCostByFeature(@Param("feature") AiFeature feature);
+
+    @Modifying
+    @Query("UPDATE AiInteractionLog a SET a.feedback = :feedback WHERE a.id = :id")
+    int updateFeedback(@Param("id") UUID id, @Param("feedback") Short feedback);
 }
