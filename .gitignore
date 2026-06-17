@@ -47,4 +47,7 @@ dist-ssr
 *.sln
 *.sw?
 application.yml
+# Variables de entorno: ignorar el archivo real, permitir la plantilla
+.env
+!.env.example
 private/

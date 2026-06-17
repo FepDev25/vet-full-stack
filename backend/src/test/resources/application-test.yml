@@ -3,9 +3,11 @@ spring:
     activate:
       on-profile: test
   datasource:
-    url: jdbc:postgresql://localhost:5435/veterinaria_test
-    username: vetuser
-    password: vetpass
+    # Reutiliza las credenciales de .env. DB_NAME_TEST permite apuntar a un schema
+    # distinto al dev (default: veterinaria_test).
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5435}/${DB_NAME_TEST:veterinaria_test}
+    username: ${DB_USERNAME:vetuser}
+    password: ${DB_PASSWORD:vetpass}
   jpa:
     hibernate:
       # Solo conecta — no valida ni crea el esquema.
@@ -18,7 +20,8 @@ spring:
 
 app:
   jwt:
-    secret: cAehb+Y5NkTSyqY7fd6M4Ha9HXnSIKvU99rGyR70TVMynW4Wd1bb1rn2xYyWZxoQIoLow2eC+M0qX3bl1GlOzw==
+    # Valor de test, separado del dev. Viene de .env (JWT_SECRET_TEST).
+    secret: ${JWT_SECRET_TEST}
     expiration-ms: 86400000
     refresh-expiration-ms: 604800000
   cors:
