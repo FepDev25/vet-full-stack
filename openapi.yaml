@@ -1,0 +1,3300 @@
+openapi: 3.1.0
+info:
+  title: Sistema Veterinario API
+  version: 1.0.0
+  description: |
+    API completa para el sistema de gestión de clínica veterinaria.
+    Incluye gestión de clientes, pacientes, agenda, consultas clínicas,
+    inventario, vacunaciones, facturación y portal de clientes.
+servers:
+  - url: http://localhost:8080
+    description: Desarrollo local
+  - url: https://api.veterinaria.com
+    description: Producción
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: auth
+    description: Autenticación y autorización
+  - name: catalogs
+    description: Catálogos de especies y razas
+  - name: clients
+    description: Gestión de clientes (propietarios)
+  - name: patients
+    description: Gestión de pacientes (animales)
+  - name: staff
+    description: Gestión de personal
+  - name: appointments
+    description: Agenda y citas
+  - name: consultations
+    description: Consultas clínicas, diagnósticos y prescripciones
+  - name: products
+    description: Inventario y catálogo de productos
+  - name: vaccinations
+    description: Historial vacunal
+  - name: invoices
+    description: Facturación
+  - name: portal
+    description: Portal de acceso para clientes (role=CLIENT)
+
+paths:
+
+  # ─────────────────────────────────────────────────────────────
+  # AUTH
+  # ─────────────────────────────────────────────────────────────
+
+  /api/v1/auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      security: []
+      summary: Autenticar usuario (staff o cliente)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Autenticación exitosa
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /api/v1/auth/register:
+    post:
+      operationId: register
+      tags: [auth]
+      security: []
+      summary: Auto-registro público de clientes
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: Cliente registrado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '409':
+          description: Email ya registrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /api/v1/auth/refresh:
+    post:
+      operationId: refreshToken
+      tags: [auth]
+      security: []
+      summary: Renovar access token usando refresh token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenRequest'
+      responses:
+        '200':
+          description: Token renovado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenRefreshResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/auth/me:
+    get:
+      operationId: getCurrentUser
+      tags: [auth]
+      summary: Perfil del usuario autenticado
+      responses:
+        '200':
+          description: Perfil del usuario
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfileResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ─────────────────────────────────────────────────────────────
+  # CATALOGS
+  # ─────────────────────────────────────────────────────────────
+
+  /api/v1/species:
+    get:
+      operationId: listSpecies
+      tags: [catalogs]
+      security: []
+      summary: Listar todas las especies
+      responses:
+        '200':
+          description: Lista de especies
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SpeciesResponse'
+    post:
+      operationId: createSpecies
+      tags: [catalogs]
+      summary: Crear especie (solo ADMIN)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SpeciesRequest'
+      responses:
+        '201':
+          description: Especie creada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SpeciesResponse'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /api/v1/species/{speciesId}/breeds:
+    get:
+      operationId: listBreedsBySpecies
+      tags: [catalogs]
+      security: []
+      summary: Listar razas de una especie
+      parameters:
+        - $ref: '#/components/parameters/SpeciesId'
+      responses:
+        '200':
+          description: Lista de razas
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BreedResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      operationId: createBreed
+      tags: [catalogs]
+      summary: Crear raza en una especie (solo ADMIN)
+      parameters:
+        - $ref: '#/components/parameters/SpeciesId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BreedRequest'
+      responses:
+        '201':
+          description: Raza creada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BreedResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  # ─────────────────────────────────────────────────────────────
+  # CLIENTS
+  # ─────────────────────────────────────────────────────────────
+
+  /api/v1/clients:
+    get:
+      operationId: listClients
+      tags: [clients]
+      summary: Listar clientes activos (paginado)
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+        - $ref: '#/components/parameters/Sort'
+        - name: search
+          in: query
+          schema:
+            type: string
+          description: Busca por first_name, last_name o email
+      responses:
+        '200':
+          description: Página de clientes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientPage'
+    post:
+      operationId: createClient
+      tags: [clients]
+      summary: Crear cliente
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClientRequest'
+      responses:
+        '201':
+          description: Cliente creado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientResponse'
+        '409':
+          description: Email ya registrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /api/v1/clients/{clientId}:
+    get:
+      operationId: getClient
+      tags: [clients]
+      summary: Obtener cliente por ID
+      parameters:
+        - $ref: '#/components/parameters/ClientId'
+      responses:
+        '200':
+          description: Cliente encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      operationId: replaceClient
+      tags: [clients]
+      summary: Reemplazar datos del cliente
+      parameters:
+        - $ref: '#/components/parameters/ClientId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClientRequest'
+      responses:
+        '200':
+          description: Cliente actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+    patch:
+      operationId: updateClient
+      tags: [clients]
+      summary: Actualizar campos del cliente parcialmente
+      parameters:
+        - $ref: '#/components/parameters/ClientId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClientPatchRequest'
+      responses:
+        '200':
+          description: Cliente actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+    delete:
+      operationId: deleteClient
+      tags: [clients]
+      summary: Soft delete de cliente (BR-04)
+      parameters:
+        - $ref: '#/components/parameters/ClientId'
+      responses:
+        '204':
+          description: Cliente marcado como eliminado (deleted_at = NOW())
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: No se puede eliminar el único propietario de un paciente activo (BR-02)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/clients/{clientId}/patients:
+    get:
+      operationId: listClientPatients
+      tags: [clients]
+      summary: Listar pacientes de un cliente
+      parameters:
+        - $ref: '#/components/parameters/ClientId'
+      responses:
+        '200':
+          description: Lista de pacientes del cliente
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PatientSummaryResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ─────────────────────────────────────────────────────────────
+  # PATIENTS
+  # ─────────────────────────────────────────────────────────────
+
+  /api/v1/patients:
+    get:
+      operationId: listPatients
+      tags: [patients]
+      summary: Listar pacientes activos (paginado)
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+        - $ref: '#/components/parameters/Sort'
+        - name: search
+          in: query
+          schema:
+            type: string
+          description: Busca por nombre o microchip
+        - name: speciesId
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Página de pacientes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PatientPage'
+    post:
+      operationId: createPatient
+      tags: [patients]
+      summary: Crear paciente y vincular propietario primario
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatientRequest'
+      responses:
+        '201':
+          description: Paciente creado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PatientResponse'
+        '409':
+          description: Microchip duplicado (BR-03)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Raza no pertenece a la especie indicada (BR-05)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/patients/{patientId}:
+    get:
+      operationId: getPatient
+      tags: [patients]
+      summary: Obtener paciente por ID
+      parameters:
+        - $ref: '#/components/parameters/PatientId'
+      responses:
+        '200':
+          description: Paciente encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PatientResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      operationId: replacePatient
+      tags: [patients]
+      summary: Reemplazar datos del paciente
+      parameters:
+        - $ref: '#/components/parameters/PatientId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatientUpdateRequest'
+      responses:
+        '200':
+          description: Paciente actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PatientResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+    patch:
+      operationId: updatePatient
+      tags: [patients]
+      summary: Actualizar campos del paciente parcialmente
+      parameters:
+        - $ref: '#/components/parameters/PatientId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatientPatchRequest'
+      responses:
+        '200':
+          description: Paciente actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PatientResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+    delete:
+      operationId: deletePatient
+      tags: [patients]
+      summary: Soft delete de paciente (BR-04, CE-10)
+      description: |
+        Marca deleted_at = NOW(). Cancela automáticamente todas las citas
+        en estado PENDING o CONFIRMED del paciente (CE-10).
+      parameters:
+        - $ref: '#/components/parameters/PatientId'
+      responses:
+        '204':
+          description: Paciente marcado como eliminado
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/patients/{patientId}/owners:
+    get:
+      operationId: listPatientOwners
+      tags: [patients]
+      summary: Listar propietarios de un paciente
+      parameters:
+        - $ref: '#/components/parameters/PatientId'
+      responses:
+        '200':
+          description: Lista de propietarios
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OwnerResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      operationId: addPatientOwner
+      tags: [patients]
+      summary: Vincular co-propietario al paciente (BR-01)
+      parameters:
+        - $ref: '#/components/parameters/PatientId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddOwnerRequest'
+      responses:
+        '201':
+          description: Propietario vinculado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OwnerResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: El cliente ya es propietario de este paciente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /api/v1/patients/{patientId}/owners/{clientId}:
+    delete:
+      operationId: removePatientOwner
+      tags: [patients]
+      summary: Desvincular propietario del paciente
+      parameters:
+        - $ref: '#/components/parameters/PatientId'
+        - $ref: '#/components/parameters/ClientId'
+      responses:
+        '204':
+          description: Propietario desvinculado
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: No se puede eliminar el único propietario del paciente (BR-02)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/patients/{patientId}/owners/{clientId}/set-primary:
+    post:
+      operationId: setPrimaryOwner
+      tags: [patients]
+      summary: Designar propietario primario (BR-01)
+      description: |
+        Actualiza is_primary_owner en una transacción: primero pone FALSE al actual,
+        luego TRUE al nuevo. Garantiza que siempre exista exactamente uno.
+      parameters:
+        - $ref: '#/components/parameters/PatientId'
+        - $ref: '#/components/parameters/ClientId'
+      responses:
+        '200':
+          description: Propietario primario actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OwnerResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/patients/{patientId}/appointments:
+    get:
+      operationId: listPatientAppointments
+      tags: [patients]
+      summary: Historial de citas de un paciente
+      parameters:
+        - $ref: '#/components/parameters/PatientId'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Página de citas
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppointmentPage'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/patients/{patientId}/consultations:
+    get:
+      operationId: listPatientConsultations
+      tags: [patients]
+      summary: Historial clínico de un paciente
+      parameters:
+        - $ref: '#/components/parameters/PatientId'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Página de consultas
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConsultationPage'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/patients/{patientId}/vaccinations:
+    get:
+      operationId: listPatientVaccinations
+      tags: [patients]
+      summary: Historial vacunal de un paciente
+      parameters:
+        - $ref: '#/components/parameters/PatientId'
+      responses:
+        '200':
+          description: Lista de vacunaciones
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/VaccinationResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ─────────────────────────────────────────────────────────────
+  # STAFF
+  # ─────────────────────────────────────────────────────────────
+
+  /api/v1/staff:
+    get:
+      operationId: listStaff
+      tags: [staff]
+      summary: Listar personal (paginado)
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+        - name: role
+          in: query
+          schema:
+            $ref: '#/components/schemas/StaffRole'
+        - name: isActive
+          in: query
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Página de personal
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StaffPage'
+    post:
+      operationId: createStaff
+      tags: [staff]
+      summary: Crear miembro del personal (solo ADMIN)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StaffRequest'
+      responses:
+        '201':
+          description: Personal creado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StaffResponse'
+        '409':
+          description: Email o license_number duplicado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: license_number requerido para VETERINARIAN (BR-26)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/staff/{staffId}:
+    get:
+      operationId: getStaff
+      tags: [staff]
+      summary: Obtener personal por ID
+      parameters:
+        - $ref: '#/components/parameters/StaffId'
+      responses:
+        '200':
+          description: Personal encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StaffResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      operationId: replaceStaff
+      tags: [staff]
+      summary: Reemplazar datos del personal
+      parameters:
+        - $ref: '#/components/parameters/StaffId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StaffRequest'
+      responses:
+        '200':
+          description: Personal actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StaffResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+    patch:
+      operationId: updateStaff
+      tags: [staff]
+      summary: Actualizar campos del personal parcialmente
+      parameters:
+        - $ref: '#/components/parameters/StaffId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StaffPatchRequest'
+      responses:
+        '200':
+          description: Personal actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StaffResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+    delete:
+      operationId: deactivateStaff
+      tags: [staff]
+      summary: Desactivar personal (is_active = false, BR-27)
+      parameters:
+        - $ref: '#/components/parameters/StaffId'
+      responses:
+        '204':
+          description: Personal desactivado. Sin eliminación física.
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ─────────────────────────────────────────────────────────────
+  # APPOINTMENTS
+  # ─────────────────────────────────────────────────────────────
+
+  /api/v1/appointments:
+    get:
+      operationId: listAppointments
+      tags: [appointments]
+      summary: Listar citas (paginado, filtrable)
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+        - name: staffId
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: Filtrar por veterinario (usa idx_appointments_staff_date)
+        - name: patientId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/AppointmentStatus'
+        - name: date
+          in: query
+          schema:
+            type: string
+            format: date
+          description: Filtrar por fecha (UTC). Agenda del día.
+      responses:
+        '200':
+          description: Página de citas
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppointmentPage'
+    post:
+      operationId: createAppointment
+      tags: [appointments]
+      summary: Crear cita
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AppointmentRequest'
+      responses:
+        '201':
+          description: Cita creada en estado PENDING
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppointmentResponse'
+        '400':
+          description: scheduled_at está en el pasado (BR-09)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Conflicto de horario del veterinario (BR-07)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /api/v1/appointments/{appointmentId}:
+    get:
+      operationId: getAppointment
+      tags: [appointments]
+      summary: Obtener cita por ID
+      parameters:
+        - $ref: '#/components/parameters/AppointmentId'
+      responses:
+        '200':
+          description: Cita encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppointmentResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      operationId: updateAppointment
+      tags: [appointments]
+      summary: Modificar campos de la cita (solo en PENDING o CONFIRMED)
+      parameters:
+        - $ref: '#/components/parameters/AppointmentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AppointmentPatchRequest'
+      responses:
+        '200':
+          description: Cita actualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppointmentResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Conflicto de horario (BR-07) o estado no permite edición
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /api/v1/appointments/{appointmentId}/confirm:
+    post:
+      operationId: confirmAppointment
+      tags: [appointments]
+      summary: PENDING → CONFIRMED
+      parameters:
+        - $ref: '#/components/parameters/AppointmentId'
+      responses:
+        '200':
+          description: Cita confirmada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppointmentResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Transición de estado inválida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/appointments/{appointmentId}/start:
+    post:
+      operationId: startAppointment
+      tags: [appointments]
+      summary: CONFIRMED → IN_PROGRESS
+      parameters:
+        - $ref: '#/components/parameters/AppointmentId'
+      responses:
+        '200':
+          description: Cita iniciada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppointmentResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Transición de estado inválida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/appointments/{appointmentId}/complete:
+    post:
+      operationId: completeAppointment
+      tags: [appointments]
+      summary: IN_PROGRESS → COMPLETED
+      parameters:
+        - $ref: '#/components/parameters/AppointmentId'
+      responses:
+        '200':
+          description: Cita completada. Habilita creación de consulta.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppointmentResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Transición de estado inválida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/appointments/{appointmentId}/cancel:
+    post:
+      operationId: cancelAppointment
+      tags: [appointments]
+      summary: PENDING|CONFIRMED → CANCELLED
+      parameters:
+        - $ref: '#/components/parameters/AppointmentId'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CancelRequest'
+      responses:
+        '200':
+          description: Cita cancelada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppointmentResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Transición de estado inválida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/appointments/{appointmentId}/no-show:
+    post:
+      operationId: markAppointmentNoShow
+      tags: [appointments]
+      summary: PENDING|CONFIRMED → NO_SHOW
+      parameters:
+        - $ref: '#/components/parameters/AppointmentId'
+      responses:
+        '200':
+          description: Cita marcada como NO_SHOW
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppointmentResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Transición de estado inválida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ─────────────────────────────────────────────────────────────
+  # CONSULTATIONS
+  # ─────────────────────────────────────────────────────────────
+
+  /api/v1/consultations:
+    post:
+      operationId: createConsultation
+      tags: [consultations]
+      summary: Crear consulta clínica desde una cita COMPLETED
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConsultationRequest'
+      responses:
+        '201':
+          description: Consulta creada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConsultationResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Ya existe consulta para esta cita (BR-10) o cita no está COMPLETED
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: staff_id no es VETERINARIAN activo (BR-08)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/consultations/{consultationId}:
+    get:
+      operationId: getConsultation
+      tags: [consultations]
+      summary: Obtener consulta con diagnósticos y prescripciones
+      parameters:
+        - $ref: '#/components/parameters/ConsultationId'
+      responses:
+        '200':
+          description: Consulta encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConsultationResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      operationId: updateConsultation
+      tags: [consultations]
+      summary: Actualizar datos clínicos de la consulta
+      description: |
+        Bloqueado si la consulta tiene una factura en estado PAID (BR-11).
+      parameters:
+        - $ref: '#/components/parameters/ConsultationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConsultationPatchRequest'
+      responses:
+        '200':
+          description: Consulta actualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConsultationResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Consulta inmutable — factura en estado PAID (BR-11)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /api/v1/consultations/{consultationId}/diagnoses:
+    get:
+      operationId: listDiagnoses
+      tags: [consultations]
+      summary: Listar diagnósticos de una consulta
+      parameters:
+        - $ref: '#/components/parameters/ConsultationId'
+      responses:
+        '200':
+          description: Lista de diagnósticos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DiagnosisResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      operationId: addDiagnosis
+      tags: [consultations]
+      summary: Agregar diagnóstico a la consulta
+      parameters:
+        - $ref: '#/components/parameters/ConsultationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DiagnosisRequest'
+      responses:
+        '201':
+          description: Diagnóstico agregado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DiagnosisResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Ya existe un diagnóstico primario para esta consulta (BR-13)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /api/v1/consultations/{consultationId}/diagnoses/{diagnosisId}:
+    patch:
+      operationId: updateDiagnosis
+      tags: [consultations]
+      summary: Actualizar diagnóstico
+      parameters:
+        - $ref: '#/components/parameters/ConsultationId'
+        - $ref: '#/components/parameters/DiagnosisId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DiagnosisPatchRequest'
+      responses:
+        '200':
+          description: Diagnóstico actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DiagnosisResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Conflicto con diagnóstico primario existente (BR-13)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      operationId: deleteDiagnosis
+      tags: [consultations]
+      summary: Eliminar diagnóstico
+      parameters:
+        - $ref: '#/components/parameters/ConsultationId'
+        - $ref: '#/components/parameters/DiagnosisId'
+      responses:
+        '204':
+          description: Diagnóstico eliminado
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: No se puede eliminar el único diagnóstico (mínimo requerido para facturar, BR-12)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/consultations/{consultationId}/prescriptions:
+    get:
+      operationId: listPrescriptions
+      tags: [consultations]
+      summary: Listar prescripciones de una consulta
+      parameters:
+        - $ref: '#/components/parameters/ConsultationId'
+      responses:
+        '200':
+          description: Lista de prescripciones
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PrescriptionResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      operationId: addPrescription
+      tags: [consultations]
+      summary: Agregar prescripción a la consulta
+      parameters:
+        - $ref: '#/components/parameters/ConsultationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PrescriptionRequest'
+      responses:
+        '201':
+          description: Prescripción creada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PrescriptionResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /api/v1/consultations/{consultationId}/prescriptions/{prescriptionId}:
+    delete:
+      operationId: deletePrescription
+      tags: [consultations]
+      summary: Eliminar prescripción
+      parameters:
+        - $ref: '#/components/parameters/ConsultationId'
+        - $ref: '#/components/parameters/PrescriptionId'
+      responses:
+        '204':
+          description: Prescripción eliminada
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ─────────────────────────────────────────────────────────────
+  # PRODUCTS
+  # ─────────────────────────────────────────────────────────────
+
+  /api/v1/products:
+    get:
+      operationId: listProducts
+      tags: [products]
+      summary: Listar productos (paginado, filtrable)
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+        - name: type
+          in: query
+          schema:
+            $ref: '#/components/schemas/ProductType'
+        - name: search
+          in: query
+          schema:
+            type: string
+          description: Busca por nombre o SKU
+        - name: isActive
+          in: query
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Página de productos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductPage'
+    post:
+      operationId: createProduct
+      tags: [products]
+      summary: Crear producto
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductRequest'
+      responses:
+        '201':
+          description: Producto creado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductResponse'
+        '409':
+          description: SKU duplicado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: |
+            stock_quantity requerido para MEDICATION/VACCINE/SUPPLY (BR-15),
+            o stock_quantity debe ser NULL para SERVICE (BR-15)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/products/low-stock:
+    get:
+      operationId: listLowStockProducts
+      tags: [products]
+      summary: Productos físicos con stock <= min_stock_alert
+      responses:
+        '200':
+          description: Lista de alertas de bajo stock
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LowStockAlertResponse'
+
+  /api/v1/products/{productId}:
+    get:
+      operationId: getProduct
+      tags: [products]
+      summary: Obtener producto por ID
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+      responses:
+        '200':
+          description: Producto encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      operationId: replaceProduct
+      tags: [products]
+      summary: Reemplazar datos del producto
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductRequest'
+      responses:
+        '200':
+          description: Producto actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+    patch:
+      operationId: updateProduct
+      tags: [products]
+      summary: Actualizar campos del producto parcialmente
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductPatchRequest'
+      responses:
+        '200':
+          description: Producto actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+    delete:
+      operationId: deactivateProduct
+      tags: [products]
+      summary: Desactivar producto (is_active = false, CE-01)
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+      responses:
+        '204':
+          description: Producto desactivado. Sin eliminación física.
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ─────────────────────────────────────────────────────────────
+  # VACCINATIONS
+  # ─────────────────────────────────────────────────────────────
+
+  /api/v1/vaccinations:
+    post:
+      operationId: createVaccination
+      tags: [vaccinations]
+      summary: Registrar vacunación
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VaccinationRequest'
+      responses:
+        '201':
+          description: Vacunación registrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VaccinationResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          description: product_id no es tipo VACCINE (BR-18) o next_due_date <= administered_at
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/vaccinations/due:
+    get:
+      operationId: listDueVaccinations
+      tags: [vaccinations]
+      summary: Vacunas con próxima dosis en N días (default 30, BR-20)
+      parameters:
+        - name: daysAhead
+          in: query
+          schema:
+            type: integer
+            default: 30
+            minimum: 1
+      responses:
+        '200':
+          description: Lista de vacunas próximas a vencer o vencidas
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/VaccinationDueResponse'
+
+  /api/v1/vaccinations/{vaccinationId}:
+    get:
+      operationId: getVaccination
+      tags: [vaccinations]
+      summary: Obtener registro de vacunación por ID
+      parameters:
+        - $ref: '#/components/parameters/VaccinationId'
+      responses:
+        '200':
+          description: Vacunación encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VaccinationResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      operationId: deleteVaccination
+      tags: [vaccinations]
+      summary: Eliminar registro de vacunación (corrección de error)
+      parameters:
+        - $ref: '#/components/parameters/VaccinationId'
+      responses:
+        '204':
+          description: Registro de vacunación eliminado
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ─────────────────────────────────────────────────────────────
+  # INVOICES
+  # ─────────────────────────────────────────────────────────────
+
+  /api/v1/invoices:
+    get:
+      operationId: listInvoices
+      tags: [invoices]
+      summary: Listar facturas (paginado, filtrable)
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+        - name: clientId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/InvoiceStatus'
+      responses:
+        '200':
+          description: Página de facturas
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvoicePage'
+    post:
+      operationId: createInvoice
+      tags: [invoices]
+      summary: Crear factura en estado DRAFT
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InvoiceCreateRequest'
+      responses:
+        '201':
+          description: Factura creada en estado DRAFT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvoiceResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Ya existe factura para esta consulta
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /api/v1/invoices/{invoiceId}:
+    get:
+      operationId: getInvoice
+      tags: [invoices]
+      summary: Obtener factura por ID
+      parameters:
+        - $ref: '#/components/parameters/InvoiceId'
+      responses:
+        '200':
+          description: Factura encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvoiceResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      operationId: updateInvoice
+      tags: [invoices]
+      summary: Actualizar factura (solo en estado DRAFT)
+      description: |
+        Permite modificar tax_rate, notes y reasignar cliente titular (BR-22).
+        Solo disponible en estado DRAFT.
+      parameters:
+        - $ref: '#/components/parameters/InvoiceId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InvoicePatchRequest'
+      responses:
+        '200':
+          description: Factura actualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvoiceResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Factura no está en estado DRAFT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/invoices/{invoiceId}/items:
+    get:
+      operationId: listInvoiceItems
+      tags: [invoices]
+      summary: Listar ítems de una factura
+      parameters:
+        - $ref: '#/components/parameters/InvoiceId'
+      responses:
+        '200':
+          description: Lista de ítems
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/InvoiceItemResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      operationId: addInvoiceItem
+      tags: [invoices]
+      summary: Agregar ítem a factura DRAFT
+      description: |
+        Congela el precio del producto en invoice_items.unit_price (BR-17).
+        Si productId es null, se crea un ítem libre (CE-09).
+        Valida stock_quantity >= quantity (BR-14).
+        Si requires_prescription=TRUE, verifica prescripción activa en los últimos 90 días (BR-16).
+      parameters:
+        - $ref: '#/components/parameters/InvoiceId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InvoiceItemRequest'
+      responses:
+        '201':
+          description: Ítem agregado. subtotal calculado por BD.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvoiceItemResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Factura no está en estado DRAFT (BR-25)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Stock insuficiente (BR-14) o requiere prescripción activa (BR-16)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/invoices/{invoiceId}/items/{itemId}:
+    delete:
+      operationId: removeInvoiceItem
+      tags: [invoices]
+      summary: Eliminar ítem de factura DRAFT (BR-25)
+      parameters:
+        - $ref: '#/components/parameters/InvoiceId'
+        - $ref: '#/components/parameters/ItemId'
+      responses:
+        '204':
+          description: Ítem eliminado
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Factura no está en estado DRAFT (BR-25)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/invoices/{invoiceId}/issue:
+    post:
+      operationId: issueInvoice
+      tags: [invoices]
+      summary: DRAFT → ISSUED
+      description: |
+        Valida: consulta asociada tiene ≥1 diagnóstico (BR-12), total > 0.
+        Calcula y fija subtotal, tax_amount, total antes de emitir (BR-23).
+        Registra issued_at = NOW().
+      parameters:
+        - $ref: '#/components/parameters/InvoiceId'
+      responses:
+        '200':
+          description: Factura emitida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvoiceResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: |
+            Transición inválida, consulta sin diagnósticos (BR-12),
+            o factura sin ítems
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/invoices/{invoiceId}/pay:
+    post:
+      operationId: payInvoice
+      tags: [invoices]
+      summary: ISSUED → PAID
+      parameters:
+        - $ref: '#/components/parameters/InvoiceId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PayInvoiceRequest'
+      responses:
+        '200':
+          description: Factura pagada. paid_at registrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvoiceResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Transición de estado inválida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /api/v1/invoices/{invoiceId}/cancel:
+    post:
+      operationId: cancelInvoice
+      tags: [invoices]
+      summary: ISSUED → CANCELLED (BR-21)
+      parameters:
+        - $ref: '#/components/parameters/InvoiceId'
+      responses:
+        '200':
+          description: Factura cancelada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvoiceResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Solo se puede cancelar desde ISSUED (BR-21)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/invoices/{invoiceId}/refund:
+    post:
+      operationId: refundInvoice
+      tags: [invoices]
+      summary: PAID → REFUNDED (BR-21)
+      parameters:
+        - $ref: '#/components/parameters/InvoiceId'
+      responses:
+        '200':
+          description: Factura reembolsada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvoiceResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Solo se puede reembolsar desde PAID (BR-21)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ─────────────────────────────────────────────────────────────
+  # PORTAL (client-facing, role=CLIENT)
+  # ─────────────────────────────────────────────────────────────
+
+  /api/v1/portal/patients:
+    get:
+      operationId: portalListMyPatients
+      tags: [portal]
+      summary: Mascotas del cliente autenticado
+      responses:
+        '200':
+          description: Lista de mascotas del cliente autenticado
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PatientResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/portal/appointments:
+    get:
+      operationId: portalListMyAppointments
+      tags: [portal]
+      summary: Citas de las mascotas del cliente autenticado
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/AppointmentStatus'
+      responses:
+        '200':
+          description: Página de citas del cliente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppointmentPage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/portal/invoices:
+    get:
+      operationId: portalListMyInvoices
+      tags: [portal]
+      summary: Facturas del cliente autenticado
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/InvoiceStatus'
+      responses:
+        '200':
+          description: Página de facturas del cliente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvoicePage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+# =============================================================================
+# COMPONENTS
+# =============================================================================
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  # ── PARAMETERS ──────────────────────────────────────────────────────────────
+  parameters:
+    Page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        default: 0
+        minimum: 0
+    Size:
+      name: size
+      in: query
+      schema:
+        type: integer
+        default: 20
+        minimum: 1
+        maximum: 100
+    Sort:
+      name: sort
+      in: query
+      schema:
+        type: string
+        example: "createdAt,desc"
+      description: "Campo y dirección. Ej: createdAt,desc"
+    ClientId:
+      name: clientId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    PatientId:
+      name: patientId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    StaffId:
+      name: staffId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    AppointmentId:
+      name: appointmentId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    ConsultationId:
+      name: consultationId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    DiagnosisId:
+      name: diagnosisId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    PrescriptionId:
+      name: prescriptionId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    ProductId:
+      name: productId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    VaccinationId:
+      name: vaccinationId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    InvoiceId:
+      name: invoiceId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    ItemId:
+      name: itemId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    SpeciesId:
+      name: speciesId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+  # ── RESPONSES ───────────────────────────────────────────────────────────────
+  responses:
+    NotFound:
+      description: Recurso no encontrado
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Conflict:
+      description: Conflicto con el estado actual del recurso
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    UnprocessableEntity:
+      description: Error de validación de campos
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Token ausente, expirado o inválido
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: Autenticado pero sin permisos para este recurso
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  # ── SCHEMAS ─────────────────────────────────────────────────────────────────
+  schemas:
+
+    # ── GLOBAL ────────────────────────────────────────────────────────────────
+
+    ErrorResponse:
+      type: object
+      required: [code, message, timestamp, path]
+      properties:
+        code:
+          type: string
+          example: APPOINTMENT_CONFLICT
+          description: Código de error de dominio en SCREAMING_SNAKE_CASE
+        message:
+          type: string
+          example: El veterinario ya tiene una cita activa en ese horario
+        timestamp:
+          type: string
+          format: date-time
+        path:
+          type: string
+          example: /api/v1/appointments
+        details:
+          type: array
+          description: Errores de validación por campo (solo en 422)
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+              message:
+                type: string
+
+    PageMeta:
+      type: object
+      required: [totalElements, totalPages, number, size]
+      properties:
+        totalElements:
+          type: integer
+          format: int64
+        totalPages:
+          type: integer
+        number:
+          type: integer
+          description: Número de página actual (0-indexed)
+        size:
+          type: integer
+
+    # ── ENUMS ─────────────────────────────────────────────────────────────────
+
+    AppointmentStatus:
+      type: string
+      enum: [PENDING, CONFIRMED, IN_PROGRESS, COMPLETED, CANCELLED, NO_SHOW]
+
+    InvoiceStatus:
+      type: string
+      enum: [DRAFT, ISSUED, PAID, CANCELLED, REFUNDED]
+
+    StaffRole:
+      type: string
+      enum: [VETERINARIAN, ASSISTANT, RECEPTIONIST]
+
+    ProductType:
+      type: string
+      enum: [MEDICATION, VACCINE, SUPPLY, SERVICE]
+
+    DiagnosisSeverity:
+      type: string
+      enum: [MILD, MODERATE, SEVERE, CRITICAL]
+
+    PatientSex:
+      type: string
+      enum: [M, F, UNKNOWN]
+
+    PaymentMethod:
+      type: string
+      enum: [CASH, CARD, TRANSFER]
+
+    JwtRole:
+      type: string
+      enum: [ADMIN, VETERINARIAN, RECEPTIONIST, CLIENT]
+
+    # ── AUTH ──────────────────────────────────────────────────────────────────
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+
+    RegisterRequest:
+      type: object
+      required: [firstName, lastName, email, password]
+      properties:
+        firstName:
+          type: string
+          maxLength: 100
+        lastName:
+          type: string
+          maxLength: 100
+        email:
+          type: string
+          format: email
+          maxLength: 255
+        password:
+          type: string
+          minLength: 8
+
+    RefreshTokenRequest:
+      type: object
+      required: [refreshToken]
+      properties:
+        refreshToken:
+          type: string
+
+    AuthResponse:
+      type: object
+      required: [token, refreshToken, role, expiresAt]
+      properties:
+        token:
+          type: string
+          description: JWT de acceso (short-lived, 24h)
+        refreshToken:
+          type: string
+          description: Token de refresco (long-lived, 7d)
+        role:
+          $ref: '#/components/schemas/JwtRole'
+        expiresAt:
+          type: string
+          format: date-time
+
+    TokenRefreshResponse:
+      type: object
+      required: [token, expiresAt]
+      properties:
+        token:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+
+    UserProfileResponse:
+      type: object
+      required: [id, email, role]
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        firstName:
+          type: string
+        lastName:
+          type: string
+        role:
+          $ref: '#/components/schemas/JwtRole'
+
+    # ── CATALOGS ──────────────────────────────────────────────────────────────
+
+    SpeciesRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          maxLength: 100
+
+    SpeciesResponse:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+
+    BreedRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          maxLength: 100
+
+    BreedResponse:
+      type: object
+      required: [id, speciesId, name]
+      properties:
+        id:
+          type: string
+          format: uuid
+        speciesId:
+          type: string
+          format: uuid
+        name:
+          type: string
+
+    # ── CLIENTS ───────────────────────────────────────────────────────────────
+
+    ClientRequest:
+      type: object
+      required: [firstName, lastName, email]
+      properties:
+        firstName:
+          type: string
+          maxLength: 100
+        lastName:
+          type: string
+          maxLength: 100
+        email:
+          type: string
+          format: email
+          maxLength: 255
+        phone:
+          type: string
+          maxLength: 30
+          nullable: true
+        address:
+          type: string
+          nullable: true
+
+    ClientPatchRequest:
+      type: object
+      properties:
+        firstName:
+          type: string
+          maxLength: 100
+        lastName:
+          type: string
+          maxLength: 100
+        email:
+          type: string
+          format: email
+          maxLength: 255
+        phone:
+          type: string
+          maxLength: 30
+          nullable: true
+        address:
+          type: string
+          nullable: true
+
+    ClientResponse:
+      type: object
+      required: [id, firstName, lastName, email, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        firstName:
+          type: string
+        lastName:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+          nullable: true
+        address:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    ClientPage:
+      type: object
+      required: [content, page]
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/ClientResponse'
+        page:
+          $ref: '#/components/schemas/PageMeta'
+
+    # ── PATIENTS ──────────────────────────────────────────────────────────────
+
+    PatientRequest:
+      type: object
+      required: [name, speciesId, sex, primaryOwnerId]
+      properties:
+        name:
+          type: string
+          maxLength: 100
+        speciesId:
+          type: string
+          format: uuid
+        breedId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Si se provee, debe pertenecer a speciesId (BR-05, AUD-01)
+        birthDate:
+          type: string
+          format: date
+          nullable: true
+        sex:
+          $ref: '#/components/schemas/PatientSex'
+        weightKg:
+          type: number
+          exclusiveMinimum: 0
+          nullable: true
+        coatColor:
+          type: string
+          maxLength: 100
+          nullable: true
+        microchipNumber:
+          type: string
+          maxLength: 50
+          nullable: true
+          description: Único global (BR-03)
+        isSterilized:
+          type: boolean
+          default: false
+        primaryOwnerId:
+          type: string
+          format: uuid
+          description: |
+            ID del cliente que será is_primary_owner=TRUE.
+            Crea automáticamente el registro en client_patients (BR-01, BR-02).
+
+    PatientUpdateRequest:
+      type: object
+      required: [name, speciesId, sex]
+      properties:
+        name:
+          type: string
+          maxLength: 100
+        speciesId:
+          type: string
+          format: uuid
+        breedId:
+          type: string
+          format: uuid
+          nullable: true
+        birthDate:
+          type: string
+          format: date
+          nullable: true
+        sex:
+          $ref: '#/components/schemas/PatientSex'
+        weightKg:
+          type: number
+          exclusiveMinimum: 0
+          nullable: true
+        coatColor:
+          type: string
+          maxLength: 100
+          nullable: true
+        microchipNumber:
+          type: string
+          maxLength: 50
+          nullable: true
+        isSterilized:
+          type: boolean
+
+    PatientPatchRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 100
+        breedId:
+          type: string
+          format: uuid
+          nullable: true
+        birthDate:
+          type: string
+          format: date
+          nullable: true
+        sex:
+          $ref: '#/components/schemas/PatientSex'
+        weightKg:
+          type: number
+          exclusiveMinimum: 0
+          nullable: true
+        coatColor:
+          type: string
+          maxLength: 100
+          nullable: true
+        microchipNumber:
+          type: string
+          maxLength: 50
+          nullable: true
+        isSterilized:
+          type: boolean
+
+    PatientSummaryResponse:
+      type: object
+      required: [id, name, speciesId, speciesName, sex, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        speciesId:
+          type: string
+          format: uuid
+        speciesName:
+          type: string
+        breedId:
+          type: string
+          format: uuid
+          nullable: true
+        breedName:
+          type: string
+          nullable: true
+        sex:
+          $ref: '#/components/schemas/PatientSex'
+        birthDate:
+          type: string
+          format: date
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    PatientResponse:
+      allOf:
+        - $ref: '#/components/schemas/PatientSummaryResponse'
+        - type: object
+          properties:
+            weightKg:
+              type: number
+              nullable: true
+            coatColor:
+              type: string
+              nullable: true
+            microchipNumber:
+              type: string
+              nullable: true
+            isSterilized:
+              type: boolean
+            updatedAt:
+              type: string
+              format: date-time
+              nullable: true
+
+    PatientPage:
+      type: object
+      required: [content, page]
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/PatientSummaryResponse'
+        page:
+          $ref: '#/components/schemas/PageMeta'
+
+    OwnerResponse:
+      type: object
+      required: [clientId, patientId, isPrimaryOwner, createdAt]
+      properties:
+        clientId:
+          type: string
+          format: uuid
+        patientId:
+          type: string
+          format: uuid
+        isPrimaryOwner:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        clientFirstName:
+          type: string
+        clientLastName:
+          type: string
+        clientEmail:
+          type: string
+          format: email
+
+    AddOwnerRequest:
+      type: object
+      required: [clientId]
+      properties:
+        clientId:
+          type: string
+          format: uuid
+        isPrimaryOwner:
+          type: boolean
+          default: false
+
+    # ── STAFF ─────────────────────────────────────────────────────────────────
+
+    StaffRequest:
+      type: object
+      required: [firstName, lastName, email, role]
+      properties:
+        firstName:
+          type: string
+          maxLength: 100
+        lastName:
+          type: string
+          maxLength: 100
+        email:
+          type: string
+          format: email
+          maxLength: 255
+        phone:
+          type: string
+          maxLength: 30
+          nullable: true
+        licenseNumber:
+          type: string
+          maxLength: 50
+          nullable: true
+          description: Obligatorio si role=VETERINARIAN (BR-26)
+        role:
+          $ref: '#/components/schemas/StaffRole'
+
+    StaffPatchRequest:
+      type: object
+      properties:
+        firstName:
+          type: string
+          maxLength: 100
+        lastName:
+          type: string
+          maxLength: 100
+        email:
+          type: string
+          format: email
+          maxLength: 255
+        phone:
+          type: string
+          maxLength: 30
+          nullable: true
+        licenseNumber:
+          type: string
+          maxLength: 50
+          nullable: true
+        isActive:
+          type: boolean
+
+    StaffResponse:
+      type: object
+      required: [id, firstName, lastName, email, role, isActive, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        firstName:
+          type: string
+        lastName:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+          nullable: true
+        licenseNumber:
+          type: string
+          nullable: true
+        role:
+          $ref: '#/components/schemas/StaffRole'
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    StaffPage:
+      type: object
+      required: [content, page]
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/StaffResponse'
+        page:
+          $ref: '#/components/schemas/PageMeta'
+
+    # ── APPOINTMENTS ──────────────────────────────────────────────────────────
+
+    AppointmentRequest:
+      type: object
+      required: [patientId, staffId, scheduledAt, reason]
+      properties:
+        patientId:
+          type: string
+          format: uuid
+        staffId:
+          type: string
+          format: uuid
+          description: Debe ser VETERINARIAN activo (BR-08)
+        scheduledAt:
+          type: string
+          format: date-time
+          description: UTC. Debe ser futuro (BR-09).
+        reason:
+          type: string
+          maxLength: 255
+        notes:
+          type: string
+          nullable: true
+
+    AppointmentPatchRequest:
+      type: object
+      properties:
+        scheduledAt:
+          type: string
+          format: date-time
+          description: UTC. Debe ser futuro (BR-09).
+        reason:
+          type: string
+          maxLength: 255
+        notes:
+          type: string
+          nullable: true
+
+    AppointmentResponse:
+      type: object
+      required: [id, patientId, staffId, scheduledAt, status, reason, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        patientId:
+          type: string
+          format: uuid
+        patientName:
+          type: string
+        staffId:
+          type: string
+          format: uuid
+        staffFullName:
+          type: string
+        scheduledAt:
+          type: string
+          format: date-time
+        status:
+          $ref: '#/components/schemas/AppointmentStatus'
+        reason:
+          type: string
+        notes:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    AppointmentPage:
+      type: object
+      required: [content, page]
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/AppointmentResponse'
+        page:
+          $ref: '#/components/schemas/PageMeta'
+
+    CancelRequest:
+      type: object
+      properties:
+        notes:
+          type: string
+          nullable: true
+
+    # ── CONSULTATIONS ─────────────────────────────────────────────────────────
+
+    ConsultationRequest:
+      type: object
+      required: [appointmentId, staffId]
+      properties:
+        appointmentId:
+          type: string
+          format: uuid
+          description: Cita en estado COMPLETED (BR-06)
+        staffId:
+          type: string
+          format: uuid
+          description: Debe ser VETERINARIAN activo (BR-08, AUD-02). Puede diferir del asignado en la cita.
+        anamnesis:
+          type: string
+          nullable: true
+        physicalExam:
+          type: string
+          nullable: true
+        treatmentPlan:
+          type: string
+          nullable: true
+        weightKg:
+          type: number
+          exclusiveMinimum: 0
+          nullable: true
+        temperatureC:
+          type: number
+          minimum: 30.0
+          maximum: 45.0
+          nullable: true
+
+    ConsultationPatchRequest:
+      type: object
+      properties:
+        anamnesis:
+          type: string
+          nullable: true
+        physicalExam:
+          type: string
+          nullable: true
+        treatmentPlan:
+          type: string
+          nullable: true
+        weightKg:
+          type: number
+          exclusiveMinimum: 0
+          nullable: true
+        temperatureC:
+          type: number
+          minimum: 30.0
+          maximum: 45.0
+          nullable: true
+
+    ConsultationResponse:
+      type: object
+      required: [id, appointmentId, patientId, staffId, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        appointmentId:
+          type: string
+          format: uuid
+        patientId:
+          type: string
+          format: uuid
+        patientName:
+          type: string
+        staffId:
+          type: string
+          format: uuid
+        staffFullName:
+          type: string
+        anamnesis:
+          type: string
+          nullable: true
+        physicalExam:
+          type: string
+          nullable: true
+        treatmentPlan:
+          type: string
+          nullable: true
+        weightKg:
+          type: number
+          nullable: true
+        temperatureC:
+          type: number
+          nullable: true
+        diagnoses:
+          type: array
+          items:
+            $ref: '#/components/schemas/DiagnosisResponse'
+        prescriptions:
+          type: array
+          items:
+            $ref: '#/components/schemas/PrescriptionResponse'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    ConsultationPage:
+      type: object
+      required: [content, page]
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/ConsultationResponse'
+        page:
+          $ref: '#/components/schemas/PageMeta'
+
+    DiagnosisRequest:
+      type: object
+      required: [description, severity, isPrimary]
+      properties:
+        cieCode:
+          type: string
+          maxLength: 20
+          nullable: true
+        description:
+          type: string
+          maxLength: 500
+        severity:
+          $ref: '#/components/schemas/DiagnosisSeverity'
+        isPrimary:
+          type: boolean
+          description: Solo uno por consulta puede ser TRUE (BR-13, índice parcial único en BD)
+
+    DiagnosisPatchRequest:
+      type: object
+      properties:
+        cieCode:
+          type: string
+          maxLength: 20
+          nullable: true
+        description:
+          type: string
+          maxLength: 500
+        severity:
+          $ref: '#/components/schemas/DiagnosisSeverity'
+        isPrimary:
+          type: boolean
+
+    DiagnosisResponse:
+      type: object
+      required: [id, consultationId, description, severity, isPrimary, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        consultationId:
+          type: string
+          format: uuid
+        cieCode:
+          type: string
+          nullable: true
+        description:
+          type: string
+        severity:
+          $ref: '#/components/schemas/DiagnosisSeverity'
+        isPrimary:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    PrescriptionRequest:
+      type: object
+      required: [productId, dosage, frequency]
+      properties:
+        productId:
+          type: string
+          format: uuid
+        dosage:
+          type: string
+          maxLength: 100
+          example: "5 mg/kg"
+        frequency:
+          type: string
+          maxLength: 100
+          example: "cada 12 horas"
+        durationDays:
+          type: integer
+          minimum: 1
+          nullable: true
+        instructions:
+          type: string
+          nullable: true
+
+    PrescriptionResponse:
+      type: object
+      required: [id, consultationId, productId, dosage, frequency, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        consultationId:
+          type: string
+          format: uuid
+        productId:
+          type: string
+          format: uuid
+        productName:
+          type: string
+        dosage:
+          type: string
+        frequency:
+          type: string
+        durationDays:
+          type: integer
+          nullable: true
+        instructions:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    # ── PRODUCTS ──────────────────────────────────────────────────────────────
+
+    ProductRequest:
+      type: object
+      required: [name, type, sku, unitPrice]
+      properties:
+        name:
+          type: string
+          maxLength: 255
+        type:
+          $ref: '#/components/schemas/ProductType'
+        description:
+          type: string
+          nullable: true
+        sku:
+          type: string
+          maxLength: 100
+        stockQuantity:
+          type: integer
+          minimum: 0
+          nullable: true
+          description: |
+            Requerido para MEDICATION, VACCINE, SUPPLY. Debe ser NULL para SERVICE (BR-15).
+        unitPrice:
+          type: number
+          minimum: 0
+        costPrice:
+          type: number
+          minimum: 0
+          nullable: true
+        minStockAlert:
+          type: integer
+          minimum: 0
+          nullable: true
+        requiresPrescription:
+          type: boolean
+          default: false
+
+    ProductPatchRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 255
+        description:
+          type: string
+          nullable: true
+        stockQuantity:
+          type: integer
+          minimum: 0
+          nullable: true
+        unitPrice:
+          type: number
+          minimum: 0
+        costPrice:
+          type: number
+          minimum: 0
+          nullable: true
+        minStockAlert:
+          type: integer
+          minimum: 0
+          nullable: true
+        requiresPrescription:
+          type: boolean
+        isActive:
+          type: boolean
+
+    ProductResponse:
+      type: object
+      required: [id, name, type, sku, unitPrice, requiresPrescription, isActive, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        type:
+          $ref: '#/components/schemas/ProductType'
+        description:
+          type: string
+          nullable: true
+        sku:
+          type: string
+        stockQuantity:
+          type: integer
+          nullable: true
+          description: NULL para type=SERVICE
+        unitPrice:
+          type: number
+        costPrice:
+          type: number
+          nullable: true
+          description: No exponer al role=CLIENT
+        minStockAlert:
+          type: integer
+          nullable: true
+        requiresPrescription:
+          type: boolean
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    ProductPage:
+      type: object
+      required: [content, page]
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductResponse'
+        page:
+          $ref: '#/components/schemas/PageMeta'
+
+    LowStockAlertResponse:
+      type: object
+      required: [productId, name, sku, type, stockQuantity, minStockAlert]
+      properties:
+        productId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        sku:
+          type: string
+        type:
+          $ref: '#/components/schemas/ProductType'
+        stockQuantity:
+          type: integer
+        minStockAlert:
+          type: integer
+
+    # ── VACCINATIONS ──────────────────────────────────────────────────────────
+
+    VaccinationRequest:
+      type: object
+      required: [patientId, productId, staffId, administeredAt, batchNumber]
+      properties:
+        patientId:
+          type: string
+          format: uuid
+        productId:
+          type: string
+          format: uuid
+          description: Debe ser type=VACCINE (BR-18, AUD-03)
+        staffId:
+          type: string
+          format: uuid
+        administeredAt:
+          type: string
+          format: date
+        nextDueDate:
+          type: string
+          format: date
+          nullable: true
+          description: Debe ser > administeredAt (BR-20)
+        batchNumber:
+          type: string
+          maxLength: 100
+          description: Número de lote obligatorio por trazabilidad legal (BR-19)
+
+    VaccinationResponse:
+      type: object
+      required: [id, patientId, productId, staffId, administeredAt, batchNumber, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        patientId:
+          type: string
+          format: uuid
+        productId:
+          type: string
+          format: uuid
+        productName:
+          type: string
+        staffId:
+          type: string
+          format: uuid
+        staffFullName:
+          type: string
+        administeredAt:
+          type: string
+          format: date
+        nextDueDate:
+          type: string
+          format: date
+          nullable: true
+        batchNumber:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    VaccinationDueResponse:
+      type: object
+      required: [vaccinationId, patientId, patientName, productId, productName, nextDueDate, daysRemaining]
+      properties:
+        vaccinationId:
+          type: string
+          format: uuid
+        patientId:
+          type: string
+          format: uuid
+        patientName:
+          type: string
+        productId:
+          type: string
+          format: uuid
+        productName:
+          type: string
+        nextDueDate:
+          type: string
+          format: date
+        daysRemaining:
+          type: integer
+          description: Negativo si ya está vencida
+
+    # ── INVOICES ──────────────────────────────────────────────────────────────
+
+    InvoiceCreateRequest:
+      type: object
+      required: [clientId, taxRate]
+      properties:
+        clientId:
+          type: string
+          format: uuid
+          description: Titular de la factura. Por defecto el propietario primario (BR-22).
+        consultationId:
+          type: string
+          format: uuid
+          nullable: true
+          description: NULL = venta directa sin consulta clínica (BR-24)
+        taxRate:
+          type: number
+          minimum: 0
+          example: 0.19
+          description: Tasa de impuesto. Ej 0.19 = 19% IVA. Se almacena históricamente.
+        notes:
+          type: string
+          nullable: true
+
+    InvoicePatchRequest:
+      type: object
+      properties:
+        clientId:
+          type: string
+          format: uuid
+          description: Reasignación de titular entre co-propietarios (BR-22). Solo en DRAFT.
+        taxRate:
+          type: number
+          minimum: 0
+        notes:
+          type: string
+          nullable: true
+
+    InvoiceResponse:
+      type: object
+      required: [id, clientId, status, subtotal, taxRate, taxAmount, total, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        clientId:
+          type: string
+          format: uuid
+        clientFullName:
+          type: string
+        consultationId:
+          type: string
+          format: uuid
+          nullable: true
+        status:
+          $ref: '#/components/schemas/InvoiceStatus'
+        subtotal:
+          type: number
+          description: Suma de invoice_items.subtotal. Calculado por la capa de aplicación.
+        taxRate:
+          type: number
+        taxAmount:
+          type: number
+          description: subtotal * taxRate
+        total:
+          type: number
+          description: subtotal + taxAmount
+        paymentMethod:
+          $ref: '#/components/schemas/PaymentMethod'
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        issuedAt:
+          type: string
+          format: date-time
+          nullable: true
+        paidAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    InvoicePage:
+      type: object
+      required: [content, page]
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/InvoiceResponse'
+        page:
+          $ref: '#/components/schemas/PageMeta'
+
+    InvoiceItemRequest:
+      type: object
+      required: [description, quantity, unitPrice]
+      properties:
+        productId:
+          type: string
+          format: uuid
+          nullable: true
+          description: |
+            Si se provee, copiar products.unit_price actual como precio congelado (BR-17).
+            Si es NULL, se trata como ítem libre (CE-09) — no aplica BR-16.
+        description:
+          type: string
+          maxLength: 500
+          description: Copiar nombre del producto + detalles al insertar
+        quantity:
+          type: integer
+          minimum: 1
+        unitPrice:
+          type: number
+          minimum: 0
+          description: Precio a congelar (BR-17). Usar products.unit_price si productId presente.
+
+    InvoiceItemResponse:
+      type: object
+      required: [id, invoiceId, description, quantity, unitPrice, subtotal]
+      properties:
+        id:
+          type: string
+          format: uuid
+        invoiceId:
+          type: string
+          format: uuid
+        productId:
+          type: string
+          format: uuid
+          nullable: true
+        description:
+          type: string
+        quantity:
+          type: integer
+        unitPrice:
+          type: number
+        subtotal:
+          type: number
+          description: |
+            GENERATED ALWAYS AS (quantity * unit_price) STORED en BD (AUD-04).
+            Read-only. No incluir en requests.
+
+    PayInvoiceRequest:
+      type: object
+      required: [paymentMethod]
+      properties:
+        paymentMethod:
+          $ref: '#/components/schemas/PaymentMethod'
