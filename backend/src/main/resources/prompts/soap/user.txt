@@ -1,0 +1,19 @@
+Contexto del paciente:
+- Nombre: {name}
+- Especie: {species}
+- Raza: {breed}
+- Edad: {ageYears} anios
+- Sexo: {sex}
+- Peso actual: {weightKg} kg
+- Esterilizado: {isSterilized}
+
+Historia reciente (ultimas 3 consultas, de la mas reciente a la mas antigua):
+{history_block}
+
+Catalogo de productos disponibles (solo podes recetar productos de esta lista):
+{products_block}
+
+Notas libres del veterinario (pueden ser transcripcion de voz o texto escrito):
+"""{freeText}"""
+
+Devolve el JSON con la estructura SOAP. No incluyas texto fuera del JSON.
