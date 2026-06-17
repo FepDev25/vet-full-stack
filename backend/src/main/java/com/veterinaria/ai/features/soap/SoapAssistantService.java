@@ -25,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import com.veterinaria.ai.audit.AiFeature;
+import com.veterinaria.ai.audit.AiFeedback;
 import com.veterinaria.ai.audit.AiInteractionLog;
 import com.veterinaria.ai.audit.AiInteractionLogRepository;
 import com.veterinaria.ai.audit.AiStatus;
@@ -193,6 +194,21 @@ public class SoapAssistantService {
         }
 
         return consultationService.getConsultation(consultationId);
+    }
+
+    @Transactional
+    public void recordFeedback(UUID consultationId, UUID interactionId, AiFeedback rating) {
+        AiInteractionLog entry = logRepo.findById(interactionId)
+                .orElseThrow(() -> new ResourceNotFoundException("AI_INTERACTION_NOT_FOUND",
+                        "Interaccion IA no encontrada: " + interactionId));
+
+        if (!consultationId.equals(entry.getEntityId())) {
+            throw new BusinessRuleException("AI_INTERACTION_MISMATCH",
+                    "La interaccion no pertenece a esta consulta", 400);
+        }
+
+        short fb = (short) (rating == AiFeedback.UP ? 1 : -1);
+        logRepo.updateFeedback(interactionId, fb);
     }
 
     private SoapContext loadContext(UUID consultationId, boolean includeHistory) {

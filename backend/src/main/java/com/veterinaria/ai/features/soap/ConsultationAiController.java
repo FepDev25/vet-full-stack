@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.veterinaria.ai.features.soap.dto.FeedbackRequest;
 import com.veterinaria.ai.features.soap.dto.SoapSuggestRequest;
 import com.veterinaria.ai.features.soap.dto.SoapSuggestResponse;
 import com.veterinaria.application.dto.response.ConsultationResponse;
@@ -55,6 +56,16 @@ public class ConsultationAiController {
         UUID vetId = resolveActiveVeterinarian(auth);
         ConsultationResponse response = soapAssistantService.apply(consultationId, suggestion, vetId);
         return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/feedback")
+    public ResponseEntity<Void> recordFeedback(
+            @PathVariable UUID consultationId,
+            @Valid @RequestBody FeedbackRequest req,
+            Authentication auth) {
+        resolveActiveVeterinarian(auth);
+        soapAssistantService.recordFeedback(consultationId, req.interactionId(), req.rating());
+        return ResponseEntity.noContent().build();
     }
 
     private UUID resolveActiveVeterinarian(Authentication auth) {
