@@ -1,0 +1,18 @@
+caseName: Vacunacion anual sin enfermedad
+input:
+  freeText: |
+    Paciente canino viene a control anual de vacunas. Sin
+    enfermedad actual. Desparasitacion al dia. Alimentacion
+    balanceada. Comportamiento normal. Examen fisico sin
+    alteraciones. Aplicar vacuna multiple y antirrabica.
+  includePatientHistory: false
+expected:
+  subjectiveMinLength: 20
+  objectiveMinLength: 20
+  planMinLength: 30
+  assessmentMinLength: 5
+  diagnosisMinCount: 0
+  diagnosisMaxCount: 1
+  requirePrimary: false
+  warningsMinCount: 0
+  requireStandardDisclaimers: true

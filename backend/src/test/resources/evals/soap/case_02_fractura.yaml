@@ -1,0 +1,18 @@
+caseName: Fractura post-trauma en perro
+input:
+  freeText: |
+    Paciente canino atropellado por auto hace 2 horas. Presenta
+    cojera del miembro posterior derecho. No apoya la pata. Dolor
+    a la palpacion del femur. Sin heridas abiertas visibles. Mucosas
+    rosadas. Temperatura 38.2. Estado de shock leve.
+  includePatientHistory: false
+expected:
+  subjectiveMinLength: 30
+  objectiveMinLength: 30
+  planMinLength: 80
+  assessmentMinLength: 15
+  diagnosisMinCount: 1
+  diagnosisMaxCount: 2
+  requirePrimary: true
+  warningsMinCount: 1
+  requireStandardDisclaimers: true

@@ -1,0 +1,19 @@
+caseName: Dermatitis alergica canina
+input:
+  freeText: |
+    Paciente canino con prurito intenso en abdomen y axilas desde
+    hace 3 semanas. Lesiones por rascado: alopecia, eritema, pápulas.
+    Prurito nocturno segun propietario. Come balanceado hace 2 meses
+    (cambio reciente de marca). Sin vomitos ni diarrea. Picadura de
+    pulgas no evidente.
+  includePatientHistory: false
+expected:
+  subjectiveMinLength: 40
+  objectiveMinLength: 30
+  planMinLength: 60
+  assessmentMinLength: 15
+  diagnosisMinCount: 1
+  diagnosisMaxCount: 3
+  requirePrimary: true
+  warningsMinCount: 0
+  requireStandardDisclaimers: true

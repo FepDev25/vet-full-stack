@@ -1,0 +1,18 @@
+caseName: Control sano felino
+input:
+  freeText: |
+    Control anual. Paciente felino, sin quejas del propietario.
+    Come bien, juega, defecacion y miccion normales. Sin vomitos.
+    Temperatura 38.5. Peso estable. Examen fisico general sin
+    hallazgos. Vacunacion al dia.
+  includePatientHistory: false
+expected:
+  subjectiveMinLength: 20
+  objectiveMinLength: 20
+  planMinLength: 30
+  assessmentMinLength: 5
+  diagnosisMinCount: 0
+  diagnosisMaxCount: 2
+  requirePrimary: false
+  warningsMinCount: 0
+  requireStandardDisclaimers: true

@@ -1,0 +1,18 @@
+caseName: Gastroenteritis canina con vomito y anorexia
+input:
+  freeText: |
+    Paciente canino, Labrador, macho castrado, 6 anios. Presenta
+    vomito desde hace 24 horas en 4 episodios. Anorexia completa.
+    Algo decado. Temperatura 39.5. Sin diarrea. Mucosas
+    ligeramente palidas. Hidratacion aceptable.
+  includePatientHistory: false
+expected:
+  subjectiveMinLength: 30
+  objectiveMinLength: 20
+  planMinLength: 50
+  assessmentMinLength: 10
+  diagnosisMinCount: 1
+  diagnosisMaxCount: 3
+  requirePrimary: true
+  warningsMinCount: 0
+  requireStandardDisclaimers: true
