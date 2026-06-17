@@ -21,6 +21,7 @@ import org.springframework.core.io.Resource;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import com.veterinaria.ai.audit.AiFeature;
@@ -31,6 +32,11 @@ import com.veterinaria.ai.provider.AiOptions;
 import com.veterinaria.ai.provider.AiProvider;
 import com.veterinaria.ai.provider.AiRequest;
 import com.veterinaria.ai.provider.AiResponse;
+import com.veterinaria.application.dto.request.ConsultationPatchRequest;
+import com.veterinaria.application.dto.request.DiagnosisRequest;
+import com.veterinaria.application.dto.request.PrescriptionRequest;
+import com.veterinaria.application.dto.response.ConsultationResponse;
+import com.veterinaria.application.service.ConsultationService;
 import com.veterinaria.domain.entity.Consultation;
 import com.veterinaria.domain.entity.Patient;
 import com.veterinaria.domain.entity.Product;
@@ -54,6 +60,7 @@ public class SoapAssistantService {
     private static final int RECENT_HISTORY_LIMIT = 3;
 
     private final AiProvider aiProvider;
+    private final ConsultationService consultationService;
     private final ConsultationRepository consultationRepo;
     private final DiagnosisRepository diagnosisRepo;
     private final PrescriptionRepository prescriptionRepo;
@@ -69,6 +76,7 @@ public class SoapAssistantService {
 
     public SoapAssistantService(
             AiProvider aiProvider,
+            ConsultationService consultationService,
             ConsultationRepository consultationRepo,
             DiagnosisRepository diagnosisRepo,
             PrescriptionRepository prescriptionRepo,
@@ -83,6 +91,7 @@ public class SoapAssistantService {
             @Value("${spring.ai.anthropic.chat.max-tokens:4096}") int defaultMaxTokens
     ) throws IOException {
         this.aiProvider = aiProvider;
+        this.consultationService = consultationService;
         this.consultationRepo = consultationRepo;
         this.diagnosisRepo = diagnosisRepo;
         this.prescriptionRepo = prescriptionRepo;
@@ -133,6 +142,57 @@ public class SoapAssistantService {
                     error != null ? error : "El LLM no respondio", 502);
         }
         return new SoapSuggestionResult(suggestion, interactionId);
+    }
+
+    @Transactional
+    public ConsultationResponse apply(UUID consultationId, SoapSuggestion suggestion, UUID vetId) {
+        consultationService.getConsultation(consultationId);
+
+        ConsultationPatchRequest patch = new ConsultationPatchRequest(
+                suggestion.subjective(),
+                suggestion.objective(),
+                suggestion.plan(),
+                null,
+                null
+        );
+        consultationService.updateConsultation(consultationId, patch);
+
+        boolean hasPrimary = suggestion.suggestedDiagnoses() != null
+                && suggestion.suggestedDiagnoses().stream().anyMatch(SuggestedDiagnosis::isPrimary);
+        if (hasPrimary) {
+            diagnosisRepo.clearPrimary(consultationId);
+        }
+
+        if (suggestion.suggestedDiagnoses() != null) {
+            for (SuggestedDiagnosis d : suggestion.suggestedDiagnoses()) {
+                if (d.description() == null || d.description().isBlank()) continue;
+                DiagnosisRequest req = new DiagnosisRequest(
+                        d.cieCode(),
+                        d.description(),
+                        d.severity(),
+                        d.isPrimary()
+                );
+                consultationService.addDiagnosis(consultationId, req);
+            }
+        }
+
+        if (suggestion.suggestedPrescriptions() != null) {
+            for (SuggestedPrescription p : suggestion.suggestedPrescriptions()) {
+                if (p.productId() == null) continue;
+                if (p.dosage() == null || p.dosage().isBlank()) continue;
+                if (p.frequency() == null || p.frequency().isBlank()) continue;
+                PrescriptionRequest req = new PrescriptionRequest(
+                        p.productId(),
+                        p.dosage(),
+                        p.frequency(),
+                        p.durationDays(),
+                        p.instructions()
+                );
+                consultationService.addPrescription(consultationId, req);
+            }
+        }
+
+        return consultationService.getConsultation(consultationId);
     }
 
     private SoapContext loadContext(UUID consultationId, boolean includeHistory) {

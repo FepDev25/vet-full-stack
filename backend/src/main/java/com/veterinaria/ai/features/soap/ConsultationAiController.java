@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.veterinaria.ai.features.soap.dto.SoapSuggestRequest;
 import com.veterinaria.ai.features.soap.dto.SoapSuggestResponse;
+import com.veterinaria.application.dto.response.ConsultationResponse;
 import com.veterinaria.domain.entity.Staff;
 import com.veterinaria.domain.enums.StaffRole;
 import com.veterinaria.domain.repository.StaffRepository;
@@ -44,6 +45,16 @@ public class ConsultationAiController {
                 consultationId, req.freeText(), includeHistory, vetId);
 
         return ResponseEntity.ok(new SoapSuggestResponse(result.interactionId(), result.suggestion()));
+    }
+
+    @PostMapping("/apply-suggestion")
+    public ResponseEntity<ConsultationResponse> applySuggestion(
+            @PathVariable UUID consultationId,
+            @RequestBody SoapSuggestion suggestion,
+            Authentication auth) {
+        UUID vetId = resolveActiveVeterinarian(auth);
+        ConsultationResponse response = soapAssistantService.apply(consultationId, suggestion, vetId);
+        return ResponseEntity.ok(response);
     }
 
     private UUID resolveActiveVeterinarian(Authentication auth) {
