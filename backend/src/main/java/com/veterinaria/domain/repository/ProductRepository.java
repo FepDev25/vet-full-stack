@@ -19,6 +19,8 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
 
     boolean existsBySku(String sku);
 
+    List<Product> findByIsActiveTrueOrderByName();
+
     @Query("""
             SELECT p FROM Product p
             WHERE (:type     IS NULL OR p.type     = :type)
