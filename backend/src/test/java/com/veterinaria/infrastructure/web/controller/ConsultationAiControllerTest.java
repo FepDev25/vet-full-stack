@@ -67,4 +67,18 @@ class ConsultationAiControllerTest extends BaseControllerIT {
                         .content("{}"))
                 .andExpect(status().isForbidden());
     }
+
+    @Test
+    void soapSuggest_vetAuth_mockedProvider_returns200() throws Exception {
+        when(aiProvider.complete(any())).thenReturn(
+                AiResponse.success(VALID_SOAP_JSON, 100, 50, new BigDecimal("0.000250"), 1500L));
+
+        mockMvc.perform(post("/api/v1/consultations/{id}/ai/soap-suggest", CONSULTATION_ID)
+                        .header("Authorization", authHeader(vetToken()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"freeText\":\"Paciente con vomito\",\"includePatientHistory\":false}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.interactionId").isNotEmpty())
+                .andExpect(jsonPath("$.suggestion.subjective").value("S"));
+    }
 }
