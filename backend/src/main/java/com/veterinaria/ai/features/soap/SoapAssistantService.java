@@ -1,6 +1,7 @@
 package com.veterinaria.ai.features.soap;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -230,7 +231,7 @@ public class SoapAssistantService {
                 .map(Product::getId)
                 .collect(Collectors.toSet());
 
-        return new SoapContext(patient, history, catalog, validProductIds);
+        return new SoapContext(PatientContext.from(patient), history, catalog, validProductIds);
     }
 
     private List<PatientHistorySnippet> loadHistory(UUID patientId) {
@@ -263,15 +264,16 @@ public class SoapAssistantService {
                 ? "Sin consultas previas."
                 : renderHistoryBlock(ctx.history());
         String productsBlock = renderProductsBlock(ctx.products());
+        PatientContext p = ctx.patient();
 
         return userPromptTemplate
-                .replace("{name}", nullSafe(ctx.patient().getName()))
-                .replace("{species}", ctx.patient().getSpecies() != null ? ctx.patient().getSpecies().getName() : "desconocida")
-                .replace("{breed}", ctx.patient().getBreed() != null ? ctx.patient().getBreed().getName() : "desconocida")
-                .replace("{ageYears}", computeAgeYears(ctx.patient().getBirthDate()))
-                .replace("{sex}", ctx.patient().getSex().name())
-                .replace("{weightKg}", ctx.patient().getWeightKg() != null ? ctx.patient().getWeightKg().toPlainString() : "desconocido")
-                .replace("{isSterilized}", ctx.patient().isSterilized() ? "si" : "no")
+                .replace("{name}", nullSafe(p.name()))
+                .replace("{species}", nullSafe(p.species(), "desconocida"))
+                .replace("{breed}", nullSafe(p.breed(), "desconocida"))
+                .replace("{ageYears}", p.ageYears() != null ? p.ageYears().toString() : "desconocida")
+                .replace("{sex}", p.sex())
+                .replace("{weightKg}", p.weightKg() != null ? p.weightKg().toPlainString() : "desconocido")
+                .replace("{isSterilized}", p.isSterilized() ? "si" : "no")
                 .replace("{history_block}", historyBlock)
                 .replace("{products_block}", productsBlock)
                 .replace("{freeText}", freeText != null ? freeText : "");
@@ -302,6 +304,10 @@ public class SoapAssistantService {
 
     private String nullSafe(String s) {
         return s != null ? s : "";
+    }
+
+    private String nullSafe(String s, String defaultValue) {
+        return s != null ? s : defaultValue;
     }
 
     private SoapSuggestion parseJson(String text) {
@@ -401,9 +407,35 @@ public class SoapAssistantService {
     public record SoapSuggestionResult(SoapSuggestion suggestion, UUID interactionId) {}
 
     private record SoapContext(
-            Patient patient,
+            PatientContext patient,
             List<PatientHistorySnippet> history,
             List<ProductCatalogSnippet> products,
             Set<UUID> validProductIds
     ) {}
+
+    private record PatientContext(
+            String name,
+            String species,
+            String breed,
+            Integer ageYears,
+            String sex,
+            BigDecimal weightKg,
+            boolean isSterilized
+    ) {
+        static PatientContext from(Patient p) {
+            Integer years = null;
+            if (p.getBirthDate() != null) {
+                years = Period.between(p.getBirthDate(), LocalDate.now()).getYears();
+            }
+            return new PatientContext(
+                    p.getName(),
+                    p.getSpecies() != null ? p.getSpecies().getName() : null,
+                    p.getBreed() != null ? p.getBreed().getName() : null,
+                    years,
+                    p.getSex() != null ? p.getSex().name() : null,
+                    p.getWeightKg(),
+                    p.isSterilized()
+            );
+        }
+    }
 }
