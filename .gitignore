@@ -50,4 +50,5 @@ application.yml
 # Variables de entorno: ignorar el archivo real, permitir la plantilla
 .env
 !.env.example
+AGENTS.md
 private/
